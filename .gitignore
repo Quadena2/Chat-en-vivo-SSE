@@ -1,13 +1,35 @@
-# Variables de entorno con secretos
+# Variables de entorno y secretos locales (no subir a Git)
 .env
+.env.*
+!.env.example
 
-# Entorno virtual
+# Entornos virtuales de Python
 .venv/
 venv/
+env/
 
-# Cache de Python
+# Caché y archivos compilados de Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
 
-# IDE
-.idea/workspace.xml
+# IDEs y editores (PyCharm, VS Code)
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archivos de persistencia local de Redis (si se ejecuta en el directorio)
+dump.rdb
+appendonly.aof
+appendonlydir/
+
+# Archivos de log y sistema operativo
+*.log
+Thumbs.db
+.DS_Store
