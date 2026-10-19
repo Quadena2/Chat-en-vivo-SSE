@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso - Redis Live Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-4xl w-full grid md:grid-cols-2 gap-6 bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl">
+
+        <!-- Columna Izquierda: Usuarios Registrados (Login y Registro) -->
+        <div class="space-y-6">
+            <div>
+                <span class="px-2.5 py-1 text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 rounded-full">
+                    Redis + Flask SSE
+                </span>
+                <h1 class="text-2xl font-bold mt-3 text-white">Cuenta Permanente</h1>
+                <p class="text-sm text-slate-400">Reserva tu nombre de forma definitiva con contraseña.</p>
+            </div>
+
+            <!-- Alertas Flash -->
+            {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                    {% for categoria, texto in mensajes %}
+                        <div class="p-3 rounded-lg text-sm border {% if categoria == 'error' %}bg-red-950/60 border-red-800 text-red-300{% else %}bg-emerald-950/60 border-emerald-800 text-emerald-300{% endif %}">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Formulario Iniciar Sesión -->
+            <form action="{{ url_for('auth.login') }}" method="POST" class="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Iniciar Sesión</h2>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Nombre de usuario</label>
+                    <input type="text" name="nombre" required minlength="3" maxlength="20"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                           placeholder="Ej. carlos">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Contraseña</label>
+                    <input type="password" name="password" required minlength="4"
+                           class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                           placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                    Entrar con mi cuenta
+                </button>
+            </form>
+
+            <!-- Formulario Crear Cuenta -->
+            <form action="{{ url_for('auth.registro') }}" method="POST" class="space-y-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">¿Nuevo? Regístrate</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" name="nombre" required minlength="3" maxlength="20"
+                           class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                           placeholder="Nuevo usuario">
+                    <input type="password" name="password" required minlength="4"
+                           class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                           placeholder="Contraseña">
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-2 rounded-lg text-sm border border-slate-700 transition">
+                    Crear cuenta permanente
+                </button>
+            </form>
+        </div>
+
+        <!-- Columna Derecha: Modo Invitado Temporal -->
+        <div class="flex flex-col justify-between bg-gradient-to-b from-slate-800/50 to-slate-900/50 p-6 rounded-xl border border-slate-800">
+            <div class="space-y-4">
+                <div class="inline-flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    Acceso Rápido (Modo Híbrido)
+                </div>
+                <h2 class="text-xl font-bold text-white">Entrar como Invitado</h2>
+                <p class="text-sm text-slate-400 leading-relaxed">
+                    Ingresa al chat al instante sin contraseña. Tu apodo se reservará en Redis con <code class="text-amber-300">HSETNX</code> mientras estés conectado y se liberará automáticamente al salir.
+                </p>
+
+                <form action="{{ url_for('auth.invitado') }}" method="POST" class="space-y-4 pt-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Elige un apodo temporal</label>
+                        <input type="text" name="apodo" required minlength="3" maxlength="20"
+                               class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500"
+                               placeholder="Ej. Invitado_Pro">
+                    </div>
+                    <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-amber-500/10">
+                        Entrar rápido como Invitado →
+                    </button>
+                </form>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-slate-800 text-xs text-slate-500 space-y-1">
+                <p class="font-medium text-slate-400">Arquitectura en ejecución:</p>
+                <p>• Persistencia atómica: Hashes, Sets y Lists en Redis</p>
+                <p>• Tiempo real: Redis Pub/Sub + Flask Server-Sent Events</p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

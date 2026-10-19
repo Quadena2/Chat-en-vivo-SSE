@@ -1,0 +1,13 @@
+# Variables de entorno con secretos
+.env
+
+# Entorno virtual
+.venv/
+venv/
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/workspace.xml

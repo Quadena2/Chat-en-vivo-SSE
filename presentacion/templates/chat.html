@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>#{{ sala_actual.nombre }} - Redis Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex overflow-hidden">
+
+    <!-- PANEL IZQUIERDO: Salas y Perfil -->
+    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0">
+        <div class="p-4 space-y-6 overflow-y-auto">
+            <!-- Encabezado -->
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                    RedisChat
+                </span>
+                <span id="estado-conexion" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    En vivo
+                </span>
+            </div>
+
+            <!-- Lista de Salas -->
+            <div>
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-2">Salas de Chat</h2>
+                <nav id="lista-salas" class="space-y-1">
+                    {% for s in salas %}
+                        <a href="{{ url_for('chat.vista_principal', sala_id=s.id) }}"
+                           class="flex items-center justify-between px-3 py-2 rounded-lg text-sm transition {% if s.id == sala_actual.id %}bg-indigo-600 text-white font-medium{% else %}text-slate-400 hover:bg-slate-800 hover:text-slate-200{% endif %}">
+                            <span class="truncate"># {{ s.nombre }}</span>
+                            <span id="badge-sala-{{ s.id }}" class="text-xs px-1.5 py-0.5 rounded {% if s.id == sala_actual.id %}bg-indigo-700 text-indigo-100{% else %}bg-slate-800 text-slate-400{% endif %}">
+                                {{ s.conectados }}
+                            </span>
+                        </a>
+                    {% endfor %}
+                </nav>
+            </div>
+
+            <!-- Crear Nueva Sala -->
+            <form action="{{ url_for('chat.crear_sala') }}" method="POST" class="space-y-2 pt-4 border-t border-slate-800">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">Nueva Sala</h3>
+                <input type="text" name="nombre" required minlength="3" maxlength="25" placeholder="Nombre de sala..."
+                       class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500">
+                <input type="text" name="descripcion" maxlength="60" placeholder="Descripción corta..."
+                       class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500">
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-xs font-medium py-1.5 rounded-lg border border-slate-700 transition">
+                    + Crear Sala
+                </button>
+            </form>
+        </div>
+
+        <!-- Pie con Perfil de Usuario y Logout -->
+        <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between">
+            <div class="truncate pr-2">
+                <p class="text-sm font-semibold text-white truncate">{{ usuario_actual.nombre }}</p>
+                <p class="text-[11px] {% if usuario_actual.es_invitado %}text-amber-400{% else %}text-indigo-400{% endif %}">
+                    {% if usuario_actual.es_invitado %}Invitado temporal{% else %}Miembro registrado{% endif %}
+                </p>
+            </div>
+            <form action="{{ url_for('auth.logout') }}" method="POST">
+                <button type="submit" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2.5 py-1.5 rounded-lg transition">
+                    Salir
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- PANEL CENTRAL: Historial de Mensajes y Barra de Envío -->
+    <main class="flex-1 flex flex-col bg-slate-950">
+        <!-- Cabecera de la Sala -->
+        <header class="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/50 shrink-0">
+            <div>
+                <h1 class="font-bold text-white"># {{ sala_actual.nombre }}</h1>
+                <p class="text-xs text-slate-400">{{ sala_actual.descripcion }}</p>
+            </div>
+            <span class="text-xs text-slate-500">Historial en Redis List (<code class="text-slate-400">LRANGE</code>)</span>
+        </header>
+
+        <!-- Alertas Flash (ej. error al crear una sala) -->
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% if mensajes %}
+                <div class="px-6 pt-3 space-y-2">
+                    {% for categoria, texto in mensajes %}
+                        <div class="p-2.5 rounded-lg text-xs border {% if categoria == 'error' %}bg-red-950/60 border-red-800 text-red-300{% else %}bg-emerald-950/60 border-emerald-800 text-emerald-300{% endif %}">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Contenedor de Mensajes -->
+        <section id="contenedor-mensajes" class="flex-1 overflow-y-auto p-6 space-y-3">
+            {% for msg in historial %}
+                <div class="flex flex-col {% if msg.usuario_id == usuario_actual.id %}items-end{% else %}items-start{% endif %}">
+                    <div class="flex items-baseline gap-2 mb-1">
+                        <span class="text-xs font-semibold {% if msg.usuario_id == usuario_actual.id %}text-indigo-400{% else %}text-emerald-400{% endif %}">
+                            {{ msg.autor }}
+                        </span>
+                        <span class="text-[10px] text-slate-500">{{ msg.fecha_hora }}</span>
+                    </div>
+                    <div class="max-w-lg px-3.5 py-2 rounded-2xl text-sm break-words {% if msg.usuario_id == usuario_actual.id %}bg-indigo-600 text-white rounded-br-none{% else %}bg-slate-800 text-slate-100 rounded-bl-none{% endif %}">
+                        {{ msg.contenido }}
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+
+        <!-- Formulario para Enviar Mensaje -->
+        <footer class="p-4 border-t border-slate-800 bg-slate-900/40">
+            <form id="form-mensaje" class="flex gap-3">
+                <input type="text" id="input-mensaje" autocomplete="off" maxlength="500" required
+                       placeholder="Escribe un mensaje en #{{ sala_actual.nombre }}..."
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
+                <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition">
+                    Enviar
+                </button>
+            </form>
+        </footer>
+    </main>
+
+    <!-- PANEL DERECHO: Usuarios Conectados en Tiempo Real -->
+    <aside class="w-60 bg-slate-900 border-l border-slate-800 p-4 flex flex-col shrink-0">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">En esta sala</h2>
+            <span id="contador-online" class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                {{ sala_actual.usuarios_online | length }}
+            </span>
+        </div>
+        <ul id="lista-usuarios-online" class="space-y-1.5 overflow-y-auto text-sm">
+            {% for nombre_u in sala_actual.usuarios_online %}
+                <li class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-950/50 text-slate-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span class="truncate">{{ nombre_u }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    </aside>
+
+    <!-- Variables inyectadas para el script JS -->
+    <script>
+        window.CHAT_CONFIG = {
+            salaId: {{ sala_actual.id | tojson }},
+            usuarioId: {{ usuario_actual.id | tojson }},
+            conexionId: {{ conexion_id | tojson }},
+            urlChat: {{ url_for('chat.vista_principal') | tojson }},
+            urlMensaje: {{ url_for('chat.enviar_mensaje', sala_id=sala_actual.id) | tojson }},
+            urlStream: {{ url_for('chat.stream_sala', sala_id=sala_actual.id, conexion=conexion_id) | tojson }},
+            urlSalir: {{ url_for('chat.salir_sala', sala_id=sala_actual.id, conexion=conexion_id) | tojson }}
+        };
+    </script>
+    <script src="{{ url_for('static', filename='js/chat_vivo.js') }}"></script>
+</body>
+</html>
