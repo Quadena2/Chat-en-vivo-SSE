@@ -64,11 +64,12 @@ class RepositorioUsuarioRedis(IRepositorioUsuario):
 
         return nuevo_id
 
-    # Si el usuario es un invitado temporal se libera el nombre del indice y bora su perfil al salir del chat
-    def eliminar_invitado(self, usuario_id: int) -> bool:
+    # Elimina por completo cualquier usuario (registrado o invitado):
+    # libera su nombre en el indice, borra su Hash, lo saca del Set y resta el contador
+    def eliminar_usuario(self, usuario_id: int) -> bool:
 
         datos = self.obtener_usuario(usuario_id)
-        if not datos or datos.get("es_invitado") != "1":
+        if not datos:
             return False
 
         nombre_minuscula = datos["nombre"].lower()
@@ -80,6 +81,15 @@ class RepositorioUsuarioRedis(IRepositorioUsuario):
         tuberia.execute()
 
         return True
+
+    # Si el usuario es un invitado temporal se libera el nombre del indice y bora su perfil al salir del chat
+    def eliminar_invitado(self, usuario_id: int) -> bool:
+
+        datos = self.obtener_usuario(usuario_id)
+        if not datos or datos.get("es_invitado") != "1":
+            return False
+
+        return self.eliminar_usuario(usuario_id)
 
     # Devuelve el ID (int) asociado al nombre o None si no existe
     def buscar_id_por_nombre(self, nombre: str) -> Optional[int]:
@@ -115,8 +125,3 @@ class RepositorioUsuarioRedis(IRepositorioUsuario):
     # Nota: si Redis no esta configurado con "decode_responses=True" algunas respuestas pueden venir como "bytes" y no "str"
     def existe_usuario(self, usuario_id: int) -> bool:
         return bool(self._cliente.sismember(self.CLAVE_CONJUNTO_USUARIOS, usuario_id))
-
-
-
-
-

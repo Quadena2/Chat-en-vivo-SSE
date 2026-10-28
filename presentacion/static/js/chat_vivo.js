@@ -34,7 +34,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         wrapper.innerHTML = `
             <div class="flex items-baseline gap-2 mb-1">
-                <span class="text-xs font-semibold ${esMio ? "text-indigo-400" : "text-emerald-400"}">
+                <span data-autor-uid="${Number(msg.usuario_id)}"
+                      class="text-xs font-semibold ${esMio ? "text-indigo-400" : "text-emerald-400"}">
                     ${escaparHTML(msg.autor)}
                 </span>
                 <span class="text-[10px] text-slate-500">${escaparHTML(msg.fecha_hora)}</span>
@@ -47,6 +48,18 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         contenedorMensajes.appendChild(wrapper);
         bajarScroll();
+    };
+
+    // Evento "usuario_eliminado": cambia en vivo el nombre del autor a "Usuario desconocido" en los mensajes de la pantalla
+    const anonimizarMensajesDOM = (datos) => {
+        if (!contenedorMensajes) return;
+        const etiquetasAutor = contenedorMensajes.querySelectorAll(
+            `[data-autor-uid="${Number(datos.usuario_id)}"]`
+        );
+        etiquetasAutor.forEach((span) => {
+            span.textContent = datos.nuevo_autor || "Usuario desconocido";
+            span.setAttribute("data-autor-uid", "0");
+        });
     };
 
     // Evento "presencia" (canal:sala:{id}): lista de nombres conectados en ESTA sala
@@ -104,6 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
             actualizarPresenciaDOM(payload.datos);
         } else if (payload.tipo === "salas") {
             actualizarSalasDOM(payload.datos);
+        } else if (payload.tipo === "usuario_eliminado") {
+            anonimizarMensajesDOM(payload.datos);
         }
     };
 

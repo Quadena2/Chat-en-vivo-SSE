@@ -22,6 +22,10 @@ class IRepositorioUsuario(ABC):
         pass
 
     @abstractmethod
+    def eliminar_usuario(self, usuario_id: int) -> bool:
+        pass
+
+    @abstractmethod
     def buscar_id_por_nombre(self, nombre: str) -> Optional[int]:
         pass
 

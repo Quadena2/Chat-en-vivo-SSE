@@ -26,3 +26,12 @@ class IRepositorioMensaje(ABC):
             limite: int = 50
     ) -> List[Dict[str, Any]]:
         pass
+
+    @abstractmethod
+    def anonimizar_mensajes_usuario(
+            self,
+            salas_ids: List[int],
+            usuario_id: int,
+            nuevo_autor: str = "Usuario desconocido",
+    ) -> List[int]:
+        pass

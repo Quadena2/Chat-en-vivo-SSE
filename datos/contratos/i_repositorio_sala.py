@@ -52,3 +52,7 @@ class IRepositorioSala(ABC):
     @abstractmethod
     def contar_usuarios_online(self, sala_id: int) -> int:
         pass
+
+    @abstractmethod
+    def usuario_tiene_conexiones_activas(self, usuario_id: int) -> bool:
+        pass

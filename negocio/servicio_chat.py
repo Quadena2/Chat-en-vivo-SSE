@@ -1,3 +1,4 @@
+import threading
 import time
 from datetime import datetime
 from typing import Tuple, Optional, Dict, Any, List, Iterator
@@ -106,6 +107,37 @@ class ServicioChat:
         self._bus_eventos.publicar_evento_sala(sala_id, evento)
         self._servicio_sala.publicar_resumen_salas()
 
+    # Cambia a "Usuario desconocido" el autor de los mensajes enviados por un usuario eliminado
+    # y avisa en tiempo real por Pub/Sub a las salas afectadas
+    def anonimizar_mensajes_usuario(self, usuario_id: int, nuevo_autor: str = "Usuario desconocido") -> None:
+        salas_ids = [int(s["id"]) for s in self._repo_salas.listar_salas()]
+        salas_afectadas = self._repo_mensajes.anonimizar_mensajes_usuario(
+            salas_ids=salas_ids,
+            usuario_id=usuario_id,
+            nuevo_autor=nuevo_autor,
+        )
+        evento = {
+            "tipo": "usuario_eliminado",
+            "datos": {
+                "usuario_id": usuario_id,
+                "nuevo_autor": nuevo_autor,
+            },
+        }
+        for sala_id in salas_afectadas:
+            self._bus_eventos.publicar_evento_sala(sala_id, evento)
+
+    # Si es un invitado temporal, espera 3 s (por si solo cambio de sala o recargo con F5)
+    # y si ya no tiene ninguna pestaña activa en ninguna sala, destruye su cuenta en Redis
+    def _programar_limpieza_invitado(self, usuario_id: int, espera_segundos: float = 3.0) -> None:
+        def _verificar_y_borrar():
+            if not self._repo_salas.usuario_tiene_conexiones_activas(usuario_id):
+                if self._repo_usuario.eliminar_invitado(usuario_id):
+                    self.anonimizar_mensajes_usuario(usuario_id)
+
+        temporizador = threading.Timer(espera_segundos, _verificar_y_borrar)
+        temporizador.daemon = True
+        temporizador.start()
+
     # Salida explicita de una sala (el navegador avisa con navigator.sendBeacon al cerrar/cambiar de pestaña)
     # Es mas rapido que esperar a que Flask detecte que la conexion SSE se corto
     def salir_de_sala(self, sala_id: int, usuario_id: int, conexion_id: str) -> None:
@@ -113,6 +145,7 @@ class ServicioChat:
             usuario = self._repo_usuario.obtener_usuario(usuario_id)
             nombre = usuario["nombre"] if usuario else f"Usuario #{usuario_id}"
             self._emitir_actualizacion_presencia(sala_id, "salida", nombre)
+        self._programar_limpieza_invitado(usuario_id)
 
     # Cierre de sesion: saca al usuario de todas las salas donde tenga conexiones abiertas
     # Debe llamarse ANTES de borrar el perfil del invitado (para conocer su nombre)
@@ -176,3 +209,4 @@ class ServicioChat:
             # Solo se avisa si la conexion seguia registrada (evita avisos duplicados)
             if self._repo_salas.registrar_salida_usuario(sala_id, usuario_id, conexion_id):
                 self._emitir_actualizacion_presencia(sala_id, "salida", nombre_usuario)
+            self._programar_limpieza_invitado(usuario_id)

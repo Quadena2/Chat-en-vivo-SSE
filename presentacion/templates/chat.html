@@ -51,17 +51,25 @@
             </form>
         </div>
 
-        <!-- Pie con Perfil de Usuario y Logout -->
-        <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between">
-            <div class="truncate pr-2">
-                <p class="text-sm font-semibold text-white truncate">{{ usuario_actual.nombre }}</p>
-                <p class="text-[11px] {% if usuario_actual.es_invitado %}text-amber-400{% else %}text-indigo-400{% endif %}">
-                    {% if usuario_actual.es_invitado %}Invitado temporal{% else %}Miembro registrado{% endif %}
-                </p>
+        <!-- Pie con Perfil de Usuario, Logout y Eliminar Cuenta -->
+        <div class="p-3 bg-slate-950/80 border-t border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+                <div class="truncate pr-2">
+                    <p class="text-sm font-semibold text-white truncate">{{ usuario_actual.nombre }}</p>
+                    <p class="text-[11px] {% if usuario_actual.es_invitado %}text-amber-400{% else %}text-indigo-400{% endif %}">
+                        {% if usuario_actual.es_invitado %}Invitado temporal{% else %}Miembro registrado{% endif %}
+                    </p>
+                </div>
+                <form action="{{ url_for('auth.logout') }}" method="POST">
+                    <button type="submit" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition">
+                        Salir
+                    </button>
+                </form>
             </div>
-            <form action="{{ url_for('auth.logout') }}" method="POST">
-                <button type="submit" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2.5 py-1.5 rounded-lg transition">
-                    Salir
+            <form action="{{ url_for('auth.eliminar_cuenta') }}" method="POST"
+                  onsubmit="return confirm('¿Seguro que deseas eliminar tu cuenta? Tus mensajes enviados pasarán a Usuario desconocido.');">
+                <button type="submit" class="w-full text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2.5 py-1.5 rounded-lg transition">
+                    Eliminar cuenta
                 </button>
             </form>
         </div>
@@ -96,7 +104,8 @@
             {% for msg in historial %}
                 <div class="flex flex-col {% if msg.usuario_id == usuario_actual.id %}items-end{% else %}items-start{% endif %}">
                     <div class="flex items-baseline gap-2 mb-1">
-                        <span class="text-xs font-semibold {% if msg.usuario_id == usuario_actual.id %}text-indigo-400{% else %}text-emerald-400{% endif %}">
+                        <span data-autor-uid="{{ msg.usuario_id }}"
+                              class="text-xs font-semibold {% if msg.usuario_id == usuario_actual.id %}text-indigo-400{% else %}text-emerald-400{% endif %}">
                             {{ msg.autor }}
                         </span>
                         <span class="text-[10px] text-slate-500">{{ msg.fecha_hora }}</span>

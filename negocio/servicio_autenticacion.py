@@ -96,14 +96,10 @@ class ServicioAutenticacion:
     def cerrar_sesion(self, usuario_id: int) -> None:
         self._repo_usuario.eliminar_invitado(usuario_id)
 
+    # Elimina definitivamente la cuenta en REDIS (tanto para usuarios registrados como invitados)
+    def eliminar_cuenta(self, usuario_id: int) -> bool:
+        return self._repo_usuario.eliminar_usuario(usuario_id)
+
     # Devuelve los datos del usuario si aun existe en REDIS
     def obtener_perfil(self, usuario_id: int) -> Optional[Dict[str, str]]:
         return self._repo_usuario.obtener_usuario(usuario_id)
-
-
-
-
-
-
-
-

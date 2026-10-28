@@ -83,11 +83,37 @@ class RepositorioMensajeRedis(IRepositorioMensaje):
 
         return [json.loads(msg) for msg in mensajes_json]
 
+    # Reemplaza con LSET el nombre del autor por "Usuario desconocido" en todos los mensajes enviados por ese usuario_id
+    # Devuelve la lista de IDs de salas donde se modificaron mensajes para avisar en vivo por Pub/Sub
+    def anonimizar_mensajes_usuario(
+            self,
+            salas_ids: List[int],
+            usuario_id: int,
+            nuevo_autor: str = "Usuario desconocido",
+    ) -> List[int]:
 
+        cliente = self._cliente
+        salas_afectadas: List[int] = []
 
+        for sala_id in salas_ids:
+            clave_lista = self._clave_mensaje_sala(int(sala_id))
+            mensajes_json = cliente.lrange(clave_lista, 0, -1)
+            if not mensajes_json:
+                continue
 
+            cambios = []
+            for indice, texto_json in enumerate(mensajes_json):
+                datos_msg = json.loads(texto_json)
+                if int(datos_msg.get("usuario_id", -1)) == int(usuario_id):
+                    datos_msg["autor"] = nuevo_autor
+                    datos_msg["usuario_id"] = 0
+                    cambios.append((indice, json.dumps(datos_msg, ensure_ascii=False)))
 
+            if cambios:
+                tuberia = cliente.pipeline(transaction=True)
+                for indice, nuevo_json in cambios:
+                    tuberia.lset(clave_lista, indice, nuevo_json)
+                tuberia.execute()
+                salas_afectadas.append(int(sala_id))
 
-
-
-
+        return salas_afectadas

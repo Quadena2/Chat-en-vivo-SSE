@@ -48,23 +48,26 @@ class BusEventosRedis(IBusEventos):
     def publicar_evento_global(self, evento: Dict[str, Any]) -> int:
         return self._publicar(self.CANAL_GLOBAL, evento)
 
-    # Generador que abre una suscripcion al canal de la sala + canal global y cede (yield) cada nuevo evento en formato JSON apenas llegue desde Redis
+    # Generador que abre una suscripción al canal de la sala + canal global y cede (yield) cada nuevo evento en formato JSON apenas llegue desde Redis
     def escuchar_sala(self, sala_id: int) -> Iterator[str]:
 
         canal = self._nombre_canal(sala_id)
 
         # Creamos un objeto PubSub
-        # cliente.pubsub(ignore_subscribe_messages=True) crea un obejto receptor de radio en redis-py, el parametro ignore_subscribe_messages=True por defecto apenas te suscribes a un canal, REDIS envia un mensaje de confirmacion "Te has suscrito con exito", al poner True filtras ese ruido y solo recibes los mensajes reales del chat
+        # cliente.pubsub(ignore_subscribe_messages=True) crea un objeto receptor de radio en redis-py,
+        # el parametro ignore_subscribe_messages=True por defecto apenas te suscribes a un canal,
+        # REDIS envia un mensaje de confirmación "Te has suscrito con éxito", al poner True filtras ese ruido y solo recibes los mensajes reales del chat
         pubsub = self._cliente.pubsub(ignore_subscribe_messages=True)
 
-        # pubsub.subscribe(...) ejecuta el comando SUBSCRIBE canal:sala:1 canal:global en REDIS (una sola conexion escucha los 2 canales)
+        # pubsub.subscribe(...) ejecuta el comando SUBSCRIBE canal:sala:1 canal:global en REDIS (una sola conexión escucha los 2 canales)
         # cuando llega un mensaje pasa por yield str(mensaje["data"]) y va directo al navegador del usuario
         pubsub.subscribe(canal, self.CANAL_GLOBAL)
 
         # try -- finally (unsubscribe y close), cuando un usuario cierra la pestaña del navegador o cambia de sala, flask interrumpe el generador "GeneratorExit"
-        # el bloque finally ejecuta automaticamente "desuscribe" al usuario en REDIS y pubsub.close() para que la conexion TCP regrese al _pool y no se agoten las conexiones disponibles
+        # el bloque finally ejecuta automáticamente "desuscribe" al usuario en REDIS
+        # pubsub.close() para que la conexión TCP regrese al _pool y no se agoten las conexiones disponibles
         try:
-            # Confirma que el SUSCRIBE ya esta activo en REDIS
+            # Confirma que el SUSCRIBE ya está activo en REDIS
             yield ""
 
             # Bucle con timeout de 1 s para no chocar con el socket_timeout=5
@@ -77,7 +80,7 @@ class BusEventosRedis(IBusEventos):
                     yield ""
 
         finally:
-            # Al cerrar la pestaña el usuario liberamos en canal y devolvemos la conexion TCP al ConecctionPool de Redis
+            # Al cerrar la pestaña el usuario liberamos en canal y devolvemos la conexión TCP al ConecctionPool de Redis
             try:
                 pubsub.unsubscribe()
             finally:

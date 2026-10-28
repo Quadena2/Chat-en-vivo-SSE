@@ -4,7 +4,7 @@ from negocio.servicio_autenticacion import ServicioAutenticacion
 from negocio.servicio_chat import ServicioChat
 
 
-# Capa de presentacion - rutas de autenticacion (Login, Registro e Invitado)
+# Capa de presentacion - rutas de autenticacion (Login, Registro, Invitado, Logout y Eliminar Cuenta)
 # Solo se comunica con la capa de negocio
 
 def crear_blueprint_auth(servicio_auth: ServicioAutenticacion, servicio_chat: ServicioChat) -> Blueprint:
@@ -74,18 +74,42 @@ def crear_blueprint_auth(servicio_auth: ServicioAutenticacion, servicio_chat: Se
 
         return redirect(url_for("chat.vista_principal"))
 
-    # Cierre de sesion y limpia el perfil en REDIS si era uun nivitado
+    # Cierre de sesion y limpia el perfil en REDIS si era un invitado
     @auth_bp.route("/logout", methods=["POST"])
     def logout():
 
         usuario_id = session.get("usuario_id")
+        era_invitado = session.get("es_invitado", False)
         if usuario_id:
+            uid = int(usuario_id)
             # 1. Lo saca de todas las salas y avisa en vivo (antes de borrar su perfil)
-            servicio_chat.desconectar_usuario(int(usuario_id))
-            # 2. Si era invitado se borra su perfil y se libera el apodo
-            servicio_auth.cerrar_sesion(int(usuario_id))
+            servicio_chat.desconectar_usuario(uid)
+            # 2. Si era invitado se borra su perfil, se libera el apodo y sus mensajes pasan a Usuario desconocido
+            servicio_auth.cerrar_sesion(uid)
+            if era_invitado:
+                servicio_chat.anonimizar_mensajes_usuario(uid)
         session.clear()
         flash("Has salido del chat correctamente", "info")
+
+        return redirect(url_for("auth.inicio"))
+
+    # Elimina definitivamente la cuenta (tanto para usuarios registrados como invitados)
+    # y cambia el autor de todos sus mensajes enviados a "Usuario desconocido"
+    @auth_bp.route("/eliminar-cuenta", methods=["POST"])
+    def eliminar_cuenta():
+
+        usuario_id = session.get("usuario_id")
+        if usuario_id:
+            uid = int(usuario_id)
+            # 1. Lo saca de todas las salas en vivo
+            servicio_chat.desconectar_usuario(uid)
+            # 2. Cambia con LSET el autor de sus mensajes a "Usuario desconocido" y avisa por Pub/Sub
+            servicio_chat.anonimizar_mensajes_usuario(uid)
+            # 3. Borra usuario:{id}, libera indice:usuario:nombre, SREM usuarios y DECR contador:usuarios
+            servicio_auth.eliminar_cuenta(uid)
+
+        session.clear()
+        flash("Tu cuenta fue eliminada y tus mensajes pasaron a 'Usuario desconocido'", "info")
 
         return redirect(url_for("auth.inicio"))
 

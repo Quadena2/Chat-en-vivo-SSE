@@ -174,3 +174,17 @@ class RepositorioSalaRedis(IRepositorioSala):
     # No se usa ZCARD porque contaria cada pestaña abierta como una persona distinta
     def contar_usuarios_online(self, sala_id: int) -> int:
         return len(self.obtener_usuarios_online(sala_id))
+
+    # Comprueba si el usuario aun tiene al menos una pestaña activa en cualquiera de las salas
+    def usuario_tiene_conexiones_activas(self, usuario_id: int) -> bool:
+        cliente = self._cliente
+        prefijo = f"{usuario_id}:"
+        limite = self._limite_vigencia()
+
+        for sid in cliente.smembers(self.CLAVE_CONJUNTO_SALAS):
+            clave = self._clave_conexiones(int(sid))
+            miembros_vivos = cliente.zrangebyscore(clave, limite, "+inf")
+            if any(m.startswith(prefijo) for m in miembros_vivos):
+                return True
+
+        return False
